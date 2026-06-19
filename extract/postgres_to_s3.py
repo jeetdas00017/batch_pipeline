@@ -48,7 +48,7 @@ SF_CONFIG = {
 }
 
 S3_BUCKET = os.getenv("S3_RAW_BUCKET", "my-company-dwh-raw")
-S3_PREFIX = "raw"
+S3_PREFIX = "postgres_extract"  # e.g. "raw/postgres_extract" if you want an additional prefix folder
 S3_ENDPOINT = os.getenv("S3_ENDPOINT")  # Optional custom endpoint (e.g. MinIO)
 
 
