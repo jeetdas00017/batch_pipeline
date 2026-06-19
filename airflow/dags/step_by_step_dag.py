@@ -20,7 +20,7 @@ default_args = {
 }
 
 with DAG(
-dag_id="postgres_to_s3_test",
+dag_id="postgres_to_s3",
 description="Test PostgreSQL -> S3 extraction",
 start_date=datetime(2026, 1, 1),
 schedule=None,
@@ -36,32 +36,9 @@ tags=["test", "postgres", "s3"],
         task_id="end"
     )
 
-    extract_customers = PythonOperator(
-        task_id="extract_customers",
+    extract_postgres_to_s3 = PythonOperator(
+        task_id="extract_postgres",
         python_callable=extract_table_to_s3,
-        op_kwargs={
-            "table_name": "stg_customers"
-        }
     )
 
-    extract_products = PythonOperator(
-        task_id="extract_products",
-        python_callable=extract_table_to_s3,
-        op_kwargs={
-            "table_name": "stg_products"
-        }
-    )
-
-    extract_orders = PythonOperator(
-        task_id="extract_orders",
-        python_callable=extract_table_to_s3,
-        op_kwargs={
-            "table_name": "stg_orders"
-        }
-    )
-
-    start >> [
-        extract_customers,
-        extract_products,
-        extract_orders
-    ] >> end
+    start >> extract_postgres_to_s3 >> end

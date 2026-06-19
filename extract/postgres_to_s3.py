@@ -1,17 +1,5 @@
-"""
-Extract source tables from Postgres and land them as Parquet files in S3.
-
-Pattern: incremental "high-watermark" extraction based on `updated_at`.
-  - Watermarks are stored in Snowflake (extract_watermark)
-  - Each run writes ONLY new/changed rows to:
-        s3://<bucket>/raw/<table>/dt=<execution_date>/<table>_<run_ts>.parquet
-  - The function returns the S3 key (or "" if no new data), which is
-    pushed to XCom and consumed by the load step (load/s3_to_snowflake.py)
-
-Tables covered: customers, products, orders
-"""
-
 import os
+import time
 import logging
 from datetime import datetime, timezone
 
@@ -22,172 +10,242 @@ import boto3
 from botocore.config import Config
 import psycopg2
 import snowflake.connector
+from dotenv import load_dotenv
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
+# Load .env file
+load_dotenv()
+
+# ---------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+)
+
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Configuration — wire these to Airflow Connections/Variables in production
-# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------
 PG_CONFIG = {
-    "host": os.getenv("PG_HOST", "source-postgres.internal"),
+    "host": os.getenv("PG_HOST"),
     "port": os.getenv("PG_PORT", "5432"),
-    "dbname": os.getenv("PG_DATABASE", "app_db"),
-    "user": os.getenv("PG_USER", "etl_reader"),
+    "dbname": os.getenv("PG_DATABASE"),
+    "user": os.getenv("PG_USER"),
     "password": os.getenv("PG_PASSWORD"),
 }
 
 SF_CONFIG = {
-    "account": os.getenv("SF_ACCOUNT", "xy12345.region"),
-    "user": os.getenv("SF_USER", "etl_user"),
+    "account": os.getenv("SF_ACCOUNT"),
+    "user": os.getenv("SF_USER"),
     "password": os.getenv("SF_PASSWORD"),
-    "database": os.getenv("SF_DATABASE", "analytics"),
-    "schema": os.getenv("SF_SCHEMA", "control"),
-    "warehouse": os.getenv("SF_WAREHOUSE", "compute_wh"),
-    "role": os.getenv("SF_ROLE", "etl_role"),
+    "database": os.getenv("SF_DATABASE"),
+    "schema": os.getenv("SF_SCHEMA"),
+    "warehouse": os.getenv("SF_WAREHOUSE"),
+    "role": os.getenv("SF_ROLE"),
 }
 
-S3_BUCKET = os.getenv("S3_RAW_BUCKET", "my-company-dwh-raw")
-S3_PREFIX = "postgres_extract"  # e.g. "raw/postgres_extract" if you want an additional prefix folder
-S3_ENDPOINT = os.getenv("S3_ENDPOINT")  # Optional custom endpoint (e.g. MinIO)
+S3_BUCKET = os.getenv("S3_RAW_BUCKET")
+S3_PREFIX = os.getenv("S3_RAW_PREFIX")
+S3_ENDPOINT = os.getenv("S3_ENDPOINT")
+
+TABLE_CONFIG = ("customers", "products", "orders")
 
 
+# ---------------------------------------------------------------------
+# Utility Functions
+# ---------------------------------------------------------------------
 def get_s3_client():
-    """Return a boto3 S3 client using explicit env creds or default chain.
-
-    Honors `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`,
-    and optional `S3_ENDPOINT` for S3-compatible services.
-    """
-    aws_key = os.getenv("AWS_ACCESS_KEY_ID")
-    aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY")
-    aws_region = os.getenv("AWS_DEFAULT_REGION")
-
-    config = Config(signature_version="s3v4")
+    logger.info("Creating S3 client")
 
     params = {}
-    if aws_region:
-        params["region_name"] = aws_region
-    if S3_ENDPOINT:
-        params["endpoint_url"] = S3_ENDPOINT
+    if os.getenv("AWS_DEFAULT_REGION"):
+        params["region_name"] = os.getenv("AWS_DEFAULT_REGION")
 
-    if aws_key and aws_secret:
-        params["aws_access_key_id"] = aws_key
-        params["aws_secret_access_key"] = aws_secret
+    if os.getenv("AWS_ACCESS_KEY_ID"):
+        params["aws_access_key_id"] = os.getenv("AWS_ACCESS_KEY_ID")
+        params["aws_secret_access_key"] = os.getenv("AWS_SECRET_ACCESS_KEY")
 
-    return boto3.client("s3", config=config, **params)
-
-# table_name -> incremental column used as the watermark
-TABLE_CONFIG = {
-    "customers": {"incremental_col": "updated_at"},
-    "products": {"incremental_col": "updated_at"},
-    "orders": {"incremental_col": "updated_at"},
-}
+    return boto3.client(
+        "s3",
+        config=Config(signature_version="s3v4"),
+        **params
+    )
 
 
 def get_pg_connection():
+    logger.info("Opening PostgreSQL connection")
+    logger.info("PG_HOST=%s", PG_CONFIG["host"])
+    logger.info("PG_PORT=%s", PG_CONFIG["port"])
+    logger.info("PG_DATABASE=%s", PG_CONFIG["dbname"])
+    logger.info("PG_USER=%s", PG_CONFIG["user"])
     return psycopg2.connect(**PG_CONFIG)
 
 
 def get_sf_connection():
+    logger.info("Opening Snowflake connection")
+    logger.info("SF_USER=%s", os.getenv("SF_USER"))
+    logger.info("SF_ACCOUNT=%s", os.getenv("SF_ACCOUNT"))
+
     return snowflake.connector.connect(**SF_CONFIG)
 
 
-def get_last_watermark(table_name: str) -> str:
-    """Return the last successfully-extracted watermark for a table."""
-    query = """
-        SELECT COALESCE(MAX(last_extracted_at), '1900-01-01 00:00:00')
-        FROM extract_watermark
-        WHERE table_name = %s
-    """
+# ---------------------------------------------------------------------
+# Latest Timestamp Functions
+# ---------------------------------------------------------------------
+def get_latest_timestamp(table_name: str) -> str:
+    logger.info("Fetching latest timestamp for table=%s", table_name)
+
     conn = get_sf_connection()
+
     try:
+        query = """
+            SELECT COALESCE(MAX(last_extracted_at),'1900-01-01 00:00:00')
+            FROM ETL_CONTROL.extract_latest_timestamp
+            WHERE table_name = %s
+        """
+
         cur = conn.cursor()
         cur.execute(query, (table_name,))
         result = cur.fetchone()
-        return str(result[0]) if result else '1900-01-01 00:00:00'
+
+        latest_timestamp = (str(result[0]))
+
+        logger.info(
+            "Latest Code Processed for %s at %s",table_name,latest_timestamp)
+
+        return latest_timestamp
+
     finally:
         conn.close()
 
 
-def update_watermark(table_name: str, watermark_value: str) -> None:
-    """Persist the new high-watermark after a successful extract."""
+def update_latest_timestamp(table_name: str, latest_timestamp_value: str):
+
+    logger.info("Updating timestamp | table=%s | latest_timestamp=%s",table_name,latest_timestamp_value)
+
     conn = get_sf_connection()
+
     try:
         cur = conn.cursor()
-        cur.execute(f"DELETE FROM extract_watermark WHERE table_name = '{table_name}';")
+
+        cur.execute("DELETE FROM ETL_CONTROL.extract_latest_timestamp WHERE table_name = %s",(table_name,))
+
         cur.execute(
-            f"""
-            INSERT INTO extract_watermark (table_name, last_extracted_at, updated_at)
-            VALUES ('{table_name}', '{watermark_value}', '{datetime.now(timezone.utc).isoformat()}');
-            """
+            """INSERT INTO ETL_CONTROL.extract_latest_timestamp(table_name,last_extracted_at,updated_at) VALUES (%s, %s, %s)""",
+            (table_name,latest_timestamp_value,datetime.now(timezone.utc))
         )
+
         conn.commit()
+
+        logger.info(
+            "Timestamp updated successfully for table=%s",
+            table_name
+        )
+
     finally:
         conn.close()
 
 
-def extract_table_to_s3(table_name: str, **context) -> str:
-    """
-    Pull rows where `updated_at` > last watermark from Postgres and write
-    them to S3 as a single Parquet file (Snappy compressed).
+# ---------------------------------------------------------------------
+# Main Extract Function
+# ---------------------------------------------------------------------
+def extract_table_to_s3(**context):
 
-    Returns the S3 key written, or "" if there was no new data
-    (used by downstream COPY task to skip the Snowflake COPY FROM S3).
-    """
-    cfg = TABLE_CONFIG[table_name]
-    incremental_col = cfg["incremental_col"]
+    start_time = time.time()
 
-    watermark = get_last_watermark(table_name)
-    logger.info("Extracting '%s' where %s > %s", table_name, incremental_col, watermark)
+    logger.info("=" * 80)
+    logger.info("STARTING EXTRACTION")
 
-    query = f"""
-        SELECT *
-        FROM {table_name}
-        WHERE {incremental_col} > %(watermark)s
-        ORDER BY {incremental_col} ASC
-    """
+    s3_keys = []
 
-    pg_conn = get_pg_connection()
     try:
-        df = pd.read_sql(query, pg_conn, params={"watermark": watermark})
-    finally:
-        pg_conn.close()
+        for tablename in TABLE_CONFIG: 
 
-    if df.empty:
-        logger.info("No new/updated rows for '%s'. Nothing written to S3.", table_name)
-        return ""
+            latest_timestamp = get_latest_timestamp(tablename)
 
-    execution_date = context["ds"]        # e.g. 2026-06-15
-    run_ts = context["ts_nodash"]          # e.g. 20260615T120000
+            logger.info(
+                "Extracting records for table=%s where %s > %s",tablename,"updated_at",latest_timestamp
+                )
 
-    file_name = f"{table_name}_{run_ts}.parquet"
-    local_path = f"/tmp/{file_name}"
-    s3_key = f"{S3_PREFIX}/{table_name}/dt={execution_date}/{file_name}"
+            query = f"""SELECT * FROM {tablename} WHERE updated_at > %(latest_timestamp)s ORDER BY updated_at desc"""
 
-    arrow_table = pa.Table.from_pandas(df)
-    pq.write_table(arrow_table, local_path, compression="snappy")
+            query_start = time.time()
 
-    s3_client = get_s3_client()
-    logger.info("Uploading to S3 bucket=%s key=%s endpoint=%s", S3_BUCKET, s3_key, S3_ENDPOINT)
-    s3_client.upload_file(local_path, S3_BUCKET, s3_key)
-    os.remove(local_path)
+            pg_conn = get_pg_connection()
 
-    logger.info("Wrote %s row(s) for '%s' to s3://%s/%s", len(df), table_name, S3_BUCKET, s3_key)
+            try:
+                df = pd.read_sql(query,pg_conn,params={"latest_timestamp": latest_timestamp})
 
-    new_watermark = df[incremental_col].max()
-    update_watermark(table_name, str(new_watermark))
+            finally:
+                pg_conn.close()
 
-    return s3_key
+            logger.info("Query completed in %.2f sec",time.time() - query_start)
+
+            logger.info("Rows extracted: %s",len(df))
+
+            if df.empty:
+                logger.info("No new data found for table=%s", tablename)
+                return ""
+
+            execution_date = context["ds"]
+            run_ts = context["ts_nodash"]
+
+            file_name = f"{tablename}_{run_ts}.parquet"
+            local_path = f"/tmp/{file_name}"
+
+            s3_key = (f"{S3_PREFIX}/"f"{tablename}/"f"dt={execution_date}/"f"{file_name}")
+
+            logger.info("Creating parquet file: %s",local_path)
+
+            parquet_start = time.time()
+
+            table = pa.Table.from_pandas(df)
+
+            pq.write_table(table,local_path,compression="snappy")
+
+            logger.info("Parquet generation completed in %.2f sec",time.time() - parquet_start)
+
+            logger.info("Uploading file to s3://%s/%s",S3_BUCKET,s3_key)
+
+            upload_start = time.time()
+
+            s3_client = get_s3_client()
+
+            s3_client.upload_file(local_path,S3_BUCKET,s3_key)
+
+            logger.info("Upload completed in %.2f sec",time.time() - upload_start)
+
+            os.remove(local_path)
+
+            logger.info("Local file removed: %s",local_path)
+
+            updated_timestamp = str(df["updated_at"].max())
+
+            logger.info("Max updated timestamp extracted: %s",updated_timestamp)
+
+            update_latest_timestamp(tablename,updated_timestamp)
+
+            logger.info("SUCCESS | table=%s | rows=%s | duration=%.2f sec",tablename,len(df),time.time() - start_time)
+
+            logger.info("=" * 80)
+
+            s3_keys.append(
+                {
+                    "table": tablename,
+                    "s3_key": s3_key
+                }
+            )
+            logger.info("=" * 80)
+            logger.info("ALL TABLES COMPLETED")
+            logger.info("Files Created=%s", len(s3_keys))
+
+            return s3_keys
 
 
-# ---------------------------------------------------------------------------
-# Standalone run: python postgres_to_s3.py <table_name>
-# ---------------------------------------------------------------------------
-if __name__ == "__main__":
-    import sys
+    except Exception as e:
 
-    table = sys.argv[1] if len(sys.argv) > 1 else "customers"
-    now = datetime.utcnow()
-    fake_context = {"ds": now.strftime("%Y-%m-%d"), "ts_nodash": now.strftime("%Y%m%dT%H%M%S")}
-    result = extract_table_to_s3(table, **fake_context)
-    print(f"S3 key written: {result or '(no new data)'}")
+        logger.exception("FAILED | table=%s | error=%s",tablename,str(e))
+        raise
+
