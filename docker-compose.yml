@@ -1,26 +1,5 @@
-version: '3.8'
 
 services:
-
-  postgres_source:
-    image: postgres:16
-    container_name: postgres_source
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: retail
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin
-      TZ: Asia/Kolkata
-      PGTZ: Asia/Kolkata
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_source_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d retail"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   postgres_dw:
     image: postgres:16
@@ -33,7 +12,7 @@ services:
       TZ: Asia/Kolkata
       PGTZ: Asia/Kolkata
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - postgres_dw_data:/var/lib/postgresql/data
     healthcheck:
@@ -52,10 +31,14 @@ services:
       POSTGRES_PASSWORD: airflow
       TZ: Asia/Kolkata
       PGTZ: Asia/Kolkata
-    ports:
-      - "5434:5432"
     volumes:
       - airflow_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 
   minio:
     image: minio/minio
@@ -125,6 +108,9 @@ services:
 
     ports:
       - "8080:8080"
+    
+    env_file:
+      - .env
 
     command: webserver
 
@@ -146,11 +132,10 @@ services:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
       - ./extract:/opt/airflow/extract
-      
+      - .env:/opt/airflow/.env
     command: scheduler
 
 volumes:
-  postgres_source_data:
   postgres_dw_data:
   airflow_db_data:
   minio_data:
