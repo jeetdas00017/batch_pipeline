@@ -6,7 +6,6 @@
       unique_key='product_id',
       strategy='timestamp',
       updated_at='updated_at',
-      invalidate_hard_deletes=True,
     )
 }}
 
@@ -19,6 +18,6 @@ select
     price,
     cost,
     updated_at
-from {{ ref('int_products_current') }}
+from {{ ref('stg_products') }}
 
 {% endsnapshot %}

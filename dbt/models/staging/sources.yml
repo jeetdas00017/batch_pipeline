@@ -1,11 +1,10 @@
 version: 2
 
 sources:
-  - name: stg
-    database: analytics
-    schema: stg
-    loader: redshift_copy
-    loaded_at_field: updated_at
+  - name: raw
+    database: SNOWFLAKE_WH
+    schema: RAW
+
 
     # Validation: alert if a batch hasn't refreshed within expected SLA
     freshness:
@@ -13,7 +12,7 @@ sources:
       error_after: {count: 12, period: hour}
 
     tables:
-      - name: stg_customers
+      - name: customers
         description: "Landing table for customer records (latest COPY batch from S3)."
         columns:
           - name: customer_id
@@ -23,7 +22,7 @@ sources:
             tests:
               - not_null
 
-      - name: stg_products
+      - name: products
         description: "Landing table for product records (latest COPY batch from S3)."
         columns:
           - name: product_id
@@ -33,7 +32,7 @@ sources:
             tests:
               - not_null
 
-      - name: stg_orders
+      - name: orders
         description: "Landing table for order records (latest COPY batch from S3)."
         columns:
           - name: order_id

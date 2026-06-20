@@ -101,13 +101,13 @@ def get_latest_timestamp(table_name: str) -> str:
 
     try:
         query = """
-            SELECT COALESCE(MAX(last_extracted_at),'1900-01-01 00:00:00')
+            SELECT MAX(last_extracted_at) as latest_timestamp
             FROM ETL_CONTROL.extract_latest_timestamp
             WHERE table_name = %s
         """
 
         cur = conn.cursor()
-        cur.execute(query, (table_name,))
+        cur.execute(query, (table_name))
         result = cur.fetchone()
 
         latest_timestamp = (str(result[0]))
@@ -130,7 +130,7 @@ def update_latest_timestamp(table_name: str, latest_timestamp_value: str):
     try:
         cur = conn.cursor()
 
-        cur.execute("DELETE FROM ETL_CONTROL.extract_latest_timestamp WHERE table_name = %s",(table_name,))
+        cur.execute("DELETE FROM ETL_CONTROL.extract_latest_timestamp WHERE table_name = %s",(table_name))
 
         cur.execute(
             """INSERT INTO ETL_CONTROL.extract_latest_timestamp(table_name,last_extracted_at,updated_at) VALUES (%s, %s, %s)""",
@@ -162,6 +162,7 @@ def extract_table_to_s3(**context):
 
     try:
         for tablename in TABLE_CONFIG: 
+            logger.info("current tablename = {}".format(tablename))
 
             latest_timestamp = get_latest_timestamp(tablename)
 
@@ -187,7 +188,7 @@ def extract_table_to_s3(**context):
 
             if df.empty:
                 logger.info("No new data found for table=%s", tablename)
-                return ""
+                continue
 
             execution_date = context["ds"]
             run_ts = context["ts_nodash"]
@@ -225,7 +226,7 @@ def extract_table_to_s3(**context):
 
             logger.info("Max updated timestamp extracted: %s",updated_timestamp)
 
-            update_latest_timestamp(tablename,updated_timestamp)
+            #update_latest_timestamp(tablename,updated_timestamp)
 
             logger.info("SUCCESS | table=%s | rows=%s | duration=%.2f sec",tablename,len(df),time.time() - start_time)
 
@@ -237,11 +238,11 @@ def extract_table_to_s3(**context):
                     "s3_key": s3_key
                 }
             )
-            logger.info("=" * 80)
-            logger.info("ALL TABLES COMPLETED")
-            logger.info("Files Created=%s", len(s3_keys))
+        logger.info("=" * 80)
+        logger.info("ALL TABLES COMPLETED")
+        logger.info("Files Created=%s", s3_keys)
 
-            return s3_keys
+        return s3_keys
 
 
     except Exception as e:

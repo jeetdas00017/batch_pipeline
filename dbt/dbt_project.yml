@@ -19,7 +19,7 @@ clean-targets:
 models:
   enterprise_dwh:
     staging:
-      +schema: staging
+      +schema: stage
       +materialized: view
 
     marts:
