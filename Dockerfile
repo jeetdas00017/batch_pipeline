@@ -11,9 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 USER airflow
 
-# Install dbt using Airflow provider packages (compatible versions)
-RUN pip install --no-cache-dir \
-    apache-airflow-providers-dbt-cloud \
-    dbt-core \
-    dbt-postgres \
-    dbt-snowflake
+# Copy requirements file
+COPY requirements.txt /tmp/requirements.txt
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r /tmp/requirements.txt

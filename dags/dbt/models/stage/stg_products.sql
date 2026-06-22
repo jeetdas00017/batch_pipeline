@@ -14,11 +14,11 @@ select
     brand,
     price,
     cost,
-    created_at,
-    updated_at
+    cast(created_at as timestamp) as created_at,
+    cast(updated_at as timestamp) as updated_at
 from {{ source('raw', 'products') }}
 
 {% if is_incremental() %}
-where updated_at > (select coalesce(max(updated_at), '1900-01-01') from {{ this }})
+where cast(updated_at as timestamp) > (select coalesce(max(cast(updated_at as timestamp)), '1900-01-01') from {{ this }})
    or product_id not in (select product_id from {{ this }})
 {% endif %}

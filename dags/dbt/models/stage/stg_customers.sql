@@ -17,12 +17,12 @@
         state,
         country,
         coalesce(acquisition_channel,'unknown') as acquisition_channel,
-        signup_date,
-        created_at,
-        updated_at
+        cast(signup_date as date) as signup_date,
+        cast(created_at as timestamp) as created_at,
+        cast(updated_at as timestamp) as updated_at
     from {{ source('raw', 'customers') }}
 
     {% if is_incremental() %}
-    where updated_at > (select coalesce(max(updated_at), '1900-01-01') from {{ this }})
+    where cast(updated_at as timestamp) > (select coalesce(max(cast(updated_at as timestamp)), '1900-01-01') from {{ this }})
     or customer_id not in (select customer_id from {{ this }})
     {% endif %}

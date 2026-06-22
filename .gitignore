@@ -90,3 +90,4 @@ minio_data/
 postgres_source_data/
 postgres_dw_data/
 airflow_db_data/
+docker-compose.yml

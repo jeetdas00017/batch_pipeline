@@ -2,16 +2,16 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 from datetime import datetime, timedelta
 
-DBT_PROJECT_DIR = "/opt/airflow/dags/dbt"
-DBT_PROFILES_DIR = "/opt/airflow/dags/dbt"
+DBT_PROJECT_DIR = "/opt/dbt"
+DBT_PROFILES_DIR = "/opt/dbt"
 
 default_args = {
     "owner": "data_engineering",
     "depends_on_past": False,
     "retries": 2,
     "retry_delay": timedelta(minutes=5),
-    "email_on_failure": True,
-    "email": ["data-eng-alerts@company.com"],
+    
+    
 }
 
 with DAG(
@@ -24,16 +24,6 @@ with DAG(
     tags=["dbt", "snowflake"],
 ) as dag:
 
-    debug_mounts = BashOperator(
-        task_id="debug_mounts",
-        bash_command="""
-        echo "===== AIRFLOW ====="
-        ls -R /opt/airflow 2>/dev/null | head -200 || true
-
-        echo "===== DBT PROJECT ====="
-        find / -name dbt_project.yml 2>/dev/null || true
-        """,
-    )
 
     check_dbt = BashOperator(
         task_id="check_dbt",
@@ -50,21 +40,13 @@ with DAG(
         """,
     )
 
-    dbt_deps = BashOperator(
-        task_id="dbt_deps",
-        bash_command=f"""
-        set -e
-        cd {DBT_PROJECT_DIR}
-        dbt deps --profiles-dir {DBT_PROFILES_DIR}
-        """,
-    )
 
     run_staging = BashOperator(
         task_id="run_staging",
         bash_command=f"""
         set -e
         cd {DBT_PROJECT_DIR}
-        dbt run --select staging --profiles-dir {DBT_PROFILES_DIR}
+        dbt run --select stage --profiles-dir {DBT_PROFILES_DIR}
         """,
     )
 
@@ -105,9 +87,7 @@ with DAG(
     )
 
     (
-        debug_mounts
-        >> check_dbt
-        >> dbt_deps
+           check_dbt
         >> run_staging
         >> run_intermediate
         >> run_dimensions
