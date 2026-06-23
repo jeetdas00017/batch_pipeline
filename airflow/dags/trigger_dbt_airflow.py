@@ -55,6 +55,7 @@ with DAG(
         dbt run --select stage --profiles-dir {DBT_PROFILES_DIR}
         """,
     )
+    
 
     run_intermediate = BashOperator(
         task_id="run_intermediate",
