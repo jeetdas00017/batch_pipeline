@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS etl_control.extract_audit_log (
     started_at             TIMESTAMP,
     completed_at           TIMESTAMP,
     updated_at             TIMESTAMP,
-    notes                  VARCHAR(4000)
+    notes                  VARCHAR(4000),
+    PRIMARY KEY (table_name, run_id)
 );
 
 -- Seed placeholder rows so the first run starts from the configured fallback date.
