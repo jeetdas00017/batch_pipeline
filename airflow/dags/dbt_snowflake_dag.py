@@ -13,7 +13,6 @@ from airflow.operators.python import PythonOperator
 sys.path.append("/opt/airflow")
 
 from extract.service import extract_all
-from extract.postgres_to_s3 import extract_table_to_s3
 
 from extract.utils.config import RAW_SCHEMA, SOURCE_SCHEMA, TABLE_CONFIG
 from extract.utils.db_utils import get_pg_connection, get_sf_connection

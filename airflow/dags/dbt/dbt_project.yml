@@ -19,7 +19,7 @@ clean-targets:
 models:
   enterprise_dwh:
     stage:
-      +schema: stage
+      +schema: warehouse
 
     marts:
       dimension:
@@ -31,11 +31,11 @@ models:
         +materialized: table
 
       sales:
-        +schema: sales_team
+        +schema: warehouse
         +materialized: table
 
       marketing:
-        +schema: marketing_team
+        +schema: warehouse
         +materialized: table
 
 snapshots:

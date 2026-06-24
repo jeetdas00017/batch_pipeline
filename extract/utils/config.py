@@ -31,6 +31,8 @@ def _get_env(name: str, default=None, required: bool = False):
 PG_CONFIG = {
     "host": _get_env("PG_HOST"),
     "port": _get_env("PG_PORT"),
+    "host": _get_env("PG_HOST"),
+    "port": _get_env("PG_PORT"),
     "dbname": _get_env("PG_DATABASE", required=True),
     "user": _get_env("PG_USER", required=True),
     "password": _get_env("PG_PASSWORD", required=True),
@@ -42,6 +44,7 @@ SF_CONFIG = {
     "password": _get_env("SF_PASSWORD", required=True),
     "database": _get_env("SF_DATABASE", required=True),
     "schema": _get_env("SF_STAGE_SCHEMA"),
+    "schema": _get_env("SF_STAGE_SCHEMA"),
     "warehouse": _get_env("SF_WAREHOUSE", required=True),
     "role": _get_env("SF_ROLE", required=True),
 }
@@ -52,15 +55,20 @@ WAREHOUSE_SCHEMA = _get_env("SF_WAREHOUSE_SCHEMA")
 MARKETING_SCHEMA = _get_env("SF_MARKETING_SCHEMA")
 SALES_SCHEMA = _get_env("SF_SALES_SCHEMA")
 CONTROL_SCHEMA = _get_env("SF_CONTROL_SCHEMA")
-CONTROL_TABLE = _get_env("ETL_CONTROL_TABLE")
+CONTROL_TABLE = _get_env("ETL_CONTROL_TABLE", "extract_audit_log")
+CONTROL_TABLE_PLACEHOLDER_DATE = _get_env("ETL_CONTROL_PLACEHOLDER_DATE", "1990-01-01 00:00:00+00:00")
+CONTROL_TABLE_WATERMARK_COLUMN = "last_extracted_at"
 
 S3_BUCKET = _get_env("S3_RAW_BUCKET", required=True)
+S3_PREFIX = _get_env("S3_RAW_PREFIX")
 S3_PREFIX = _get_env("S3_RAW_PREFIX")
 S3_ENDPOINT = _get_env("S3_ENDPOINT")
 S3_REGION = _get_env("AWS_DEFAULT_REGION")
 AWS_ACCESS_KEY_ID = _get_env("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = _get_env("AWS_SECRET_ACCESS_KEY")
 
+SOURCE_SCHEMA = _get_env("PG_SOURCE_SCHEMA")
+TIMESTAMP_COLUMN = _get_env("PG_TIMESTAMP_COLUMN")
 SOURCE_SCHEMA = _get_env("PG_SOURCE_SCHEMA")
 TIMESTAMP_COLUMN = _get_env("PG_TIMESTAMP_COLUMN")
 TABLE_CONFIG = tuple(
