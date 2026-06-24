@@ -10,8 +10,7 @@ from extract.utils.parquet_utils import write_dataframe_to_parquet
 from extract.repository import get_latest_timestamp, update_latest_timestamp
 from extract.utils.s3_utils import upload_file_to_s3
 from extract.utils.logging_config import logger
-from extract.audit import ensure_audit_table, insert_audit_entry, update_audit_entry
-from extract.audit import ensure_audit_table, insert_audit_entry, update_audit_entry
+from extract.audit import insert_audit_entry, update_audit_entry
 
 
 def _build_extract_query(table_name: str) -> str:
@@ -85,11 +84,6 @@ def extract_table(table_name: str, execution_date: str, run_ts: str, run_id: str
     latest_timestamp = get_latest_timestamp(table_name)
     logger.info("Extracting table=%s with latest_timestamp=%s", table_name, latest_timestamp)
 
-    insert_audit_entry(run_id, table_name, "running", notes="Extraction started")
-
-    try:
-        df = _read_table(table_name, latest_timestamp)
-        logger.info("Rows extracted for %s: %s", table_name, len(df))
     insert_audit_entry(run_id, table_name, "running", notes="Extraction started")
 
     try:

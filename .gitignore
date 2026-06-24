@@ -92,3 +92,4 @@ postgres_dw_data/
 airflow_db_data/
 docker-compose.yml
 Dockerfile
+git.md
