@@ -5,7 +5,7 @@
 -- ---------------------------------------------------------------------
 
 with customers as (
-    select customer_sk, customer_id, city , signup_date
+    select customer_sk, customer_id, city
     from {{ ref('dim_customers') }}
     where is_current = true
 ),

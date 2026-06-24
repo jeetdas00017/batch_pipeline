@@ -1,4 +1,3 @@
-
 services:
 
   postgres_dw:
@@ -102,8 +101,37 @@ services:
       - postgres_dw
 
     environment:
-        AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow_db/airflow
-        AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow_db/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      PG_HOST: postgres_dw
+      PG_PORT: "5432"
+      PG_DATABASE: warehouse
+      PG_USER: admin
+      PG_PASSWORD: admin
+      SF_ACCOUNT: dw03145.ap-south-1.aws
+      SF_USER: JEETDAS0017
+      SF_PASSWORD: Newzealandauck_2026
+      SF_DATABASE: SNOWFLAKE_WH
+      SF_STAGE_SCHEMA: STAGE
+      SF_RAW_SCHEMA: RAW_TABLE
+      SF_WAREHOUSE_SCHEMA: WAREHOUSE
+      SF_MARKETING_SCHEMA: MARKETING_TEAM
+      SF_SALES_SCHEMA: SALES_TEAM
+      SF_CONTROL_SCHEMA: ETL_CONTROL
+      SF_WAREHOUSE: compute_wh
+      SF_ROLE: ACCOUNTADMIN
+      S3_RAW_BUCKET: jeet-project-raw-layer
+      S3_RAW_PREFIX: raw
+      S3_ENDPOINT: ""
+      AWS_ACCESS_KEY_ID: AKIA3I6WN55TCO352XEZ
+      AWS_SECRET_ACCESS_KEY: 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
+      AWS_DEFAULT_REGION: ap-south-1
+      PG_SOURCE_SCHEMA: postgres_table
+      PG_TIMESTAMP_COLUMN: updated_at
+      ETL_CONTROL_TABLE: extract_latest_timestamp
+      ETL_TABLES: customers,products,orders
+      PARQUET_COMPRESSION: snappy
+      PARQUET_TIMESTAMP_UNIT: us
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
@@ -111,11 +139,8 @@ services:
 
     ports:
       - "8080:8080"
-    
-    env_file:
-      - .env
 
-    command: webserver
+    command: bash -c "airflow db migrate && airflow webserver"
 
   airflow-scheduler:
 
@@ -134,15 +159,41 @@ services:
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow_db/airflow
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      PG_HOST: postgres_dw
+      PG_PORT: "5432"
+      PG_DATABASE: warehouse
+      PG_USER: admin
+      PG_PASSWORD: admin
+      SF_ACCOUNT: dw03145.ap-south-1.aws
+      SF_USER: JEETDAS0017
+      SF_PASSWORD: Newzealandauck_2026
+      SF_DATABASE: SNOWFLAKE_WH
+      SF_STAGE_SCHEMA: STAGE
+      SF_RAW_SCHEMA: RAW_TABLE
+      SF_WAREHOUSE_SCHEMA: WAREHOUSE
+      SF_MARKETING_SCHEMA: MARKETING_TEAM
+      SF_SALES_SCHEMA: SALES_TEAM
+      SF_CONTROL_SCHEMA: ETL_CONTROL
+      SF_WAREHOUSE: compute_wh
+      SF_ROLE: ACCOUNTADMIN
+      S3_RAW_BUCKET: jeet-project-raw-layer
+      S3_RAW_PREFIX: raw
+      S3_ENDPOINT: ""
+      AWS_ACCESS_KEY_ID: AKIA3I6WN55TCO352XEZ
+      AWS_SECRET_ACCESS_KEY: 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
+      AWS_DEFAULT_REGION: ap-south-1
+      PG_SOURCE_SCHEMA: postgres_table
+      PG_TIMESTAMP_COLUMN: updated_at
+      ETL_CONTROL_TABLE: extract_latest_timestamp
+      ETL_TABLES: customers,products,orders
+      PARQUET_COMPRESSION: snappy
+      PARQUET_TIMESTAMP_UNIT: us
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
       - ./extract:/opt/airflow/extract
-    
-    env_file:
-      - .env
-    
-    command: scheduler
+
+    command: bash -c "airflow db migrate && airflow scheduler"
 
 volumes:
   postgres_dw_data:

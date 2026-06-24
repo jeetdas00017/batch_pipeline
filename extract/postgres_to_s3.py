@@ -12,6 +12,8 @@ import psycopg2
 import snowflake.connector
 from dotenv import load_dotenv
 
+from extract.utils.config import SOURCE_SCHEMA, TIMESTAMP_COLUMN
+
 # Load .env file
 load_dotenv()
 
@@ -225,10 +227,14 @@ def extract_table_to_s3(**context):
             latest_timestamp = get_latest_timestamp(tablename)
 
             logger.info(
-                "Extracting records for table=%s where %s > %s",tablename,"updated_at",latest_timestamp
-                )
+                "Extracting records for table=%s where %s > %s", tablename, TIMESTAMP_COLUMN, latest_timestamp
+            )
 
-            query = f"""SELECT * FROM postgres_table.{tablename} WHERE updated_at > %(latest_timestamp)s ORDER BY updated_at desc"""
+            query = (
+                f"SELECT * FROM {SOURCE_SCHEMA}.{tablename} "
+                f"WHERE {TIMESTAMP_COLUMN} > %(latest_timestamp)s "
+                f"ORDER BY {TIMESTAMP_COLUMN} DESC"
+            )
 
             query_start = time.time()
 
