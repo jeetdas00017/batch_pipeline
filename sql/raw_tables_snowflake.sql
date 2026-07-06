@@ -11,7 +11,7 @@
 
 DROP TABLE IF EXISTS RAW_table.customers;
 CREATE TABLE RAW_table.customers (
-    customer_id         BIGINT,
+    customer_id         BIGINT Primary Key,
     first_name          VARCHAR(100),
     last_name           VARCHAR(100),
     email               VARCHAR(255),
@@ -27,7 +27,7 @@ CREATE TABLE RAW_table.customers (
 -- ---------------------------------------------------------------------
 DROP TABLE IF EXISTS RAW_table.products;
 CREATE TABLE RAW_table.products (
-    product_id   BIGINT,
+    product_id   BIGINT Primary Key,
     product_name VARCHAR(255),
     category     VARCHAR(100),
     sub_category VARCHAR(100),
@@ -43,7 +43,7 @@ CREATE TABLE RAW_table.products (
 -- ---------------------------------------------------------------------
 DROP TABLE IF EXISTS RAW_table.orders;
 CREATE TABLE RAW_table.orders (
-    order_id       BIGINT,
+    order_id       BIGINT Primary Key,
     customer_id    BIGINT,
     product_id     BIGINT,
     order_date     TIMESTAMP_NTZ,

@@ -37,9 +37,28 @@ CREATE TABLE postgres_table.products (
     updated_at   TIMESTAMP
 );
 
+
 -- ---------------------------------------------------------------------
 -- stg.stg_orders
 -- ---------------------------------------------------------------------  truncate table postgres_table.customers;
+
+CREATE TABLE postgres_table.orders (
+    order_id       BIGINT,
+    customer_id    BIGINT,
+    product_id     BIGINT,
+    order_date     TIMESTAMP_NTZ,
+    quantity       INTEGER,
+    unit_price     NUMERIC(12,2),
+    discount       NUMERIC(5,2),
+    total_amount   NUMERIC(12,2),
+    order_status   VARCHAR(50),
+    payment_method VARCHAR(50),
+    created_at     TIMESTAMP_NTZ,
+    updated_at     TIMESTAMP_NTZ
+);
+
+
+
   truncate table postgres_table.custtomers;
   truncate table postgres_table.products;
   truncate table postgres_table.orders;
