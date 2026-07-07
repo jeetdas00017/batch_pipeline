@@ -14,6 +14,7 @@ sys.path.append("/opt/airflow")
 
 from extract.service import extract_all, wait_for_row_count_sync
 from extract.utils.logging_config import configure_logging
+from extract.insert.insert_to_postgres import generate_fake_data
 
 configure_logging()
 
@@ -39,13 +40,23 @@ default_args = {
 
 with DAG(
     dag_id="datawarehousing",
-    description="Extract from PostgreSQL to S3, wait 5 minutes, then run dbt",
+    description="Extract from PostgreSQL to S3, then run dbt",
     start_date=datetime(2026, 1, 1),
     schedule=None,
     catchup=False,
     default_args=default_args,
     tags=["postgres", "s3", "dbt", "snowflake"],
 ) as dag:
+
+    generate_fake_data_task = PythonOperator(
+        task_id="generate_fake_data",
+        python_callable=generate_fake_data,
+        op_kwargs={
+            "customer_count": 10,
+            "product_count": 5,
+            "order_count": 20,
+        },
+    )
 
     extract_postgres_to_s3 = PythonOperator(
         task_id="extract_postgres_to_s3",
@@ -75,8 +86,9 @@ with DAG(
     dbt_packages = BashOperator(
         task_id="dbt_packages",
         bash_command=f"""
+        set -e
         cd {DBT_PROJECT_DIR}
-        dbt deps --profiles-dir .
+        dbt deps --profiles-dir {DBT_PROFILES_DIR}
         """,
     )
 
@@ -94,7 +106,7 @@ with DAG(
         bash_command=f"""
         set -e
         cd {DBT_PROJECT_DIR}
-        dbt snapshot --target snowflake --profiles-dir {DBT_PROFILES_DIR} 2>&1
+        dbt snapshot --target snowflake --profiles-dir {DBT_PROFILES_DIR}
         """,
     )
 
@@ -143,5 +155,4 @@ with DAG(
         """,
     )
 
-
-    extract_postgres_to_s3 >> wait_for_row_count >> check_dbt >> dbt_packages >> run_staging >> run_snapshot >> run_dimensions >> run_facts >> run_marketing >> run_sales >> dbt_test 
+    generate_fake_data_task >> extract_postgres_to_s3 >> wait_for_row_count >> check_dbt >> dbt_packages >> run_staging >> run_snapshot >> run_dimensions >> run_facts >> run_marketing >> run_sales >> dbt_test

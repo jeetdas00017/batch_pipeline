@@ -14,3 +14,4 @@ dbt-snowflake==1.8.0
 
 # Additional utilities
 python-dotenv==1.0.0
+faker==23.3.0

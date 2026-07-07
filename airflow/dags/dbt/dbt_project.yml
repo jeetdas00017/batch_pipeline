@@ -12,34 +12,27 @@ macro-paths: ["macros"]
 snapshot-paths: ["snapshots"]
 
 target-path: "target"
+
 clean-targets:
   - "target"
   - "dbt_packages"
 
 models:
   enterprise_dwh:
+    +schema: warehouse
+
     stage:
-      +schema: warehouse
+      +materialized: view
 
     marts:
-      dimension:
-        +schema: warehouse
-        +materialized: table
+      dimension: {}
 
-      fact:
-        +schema: warehouse
-        +materialized: table
+      fact: {}
 
-      sales:
-        +schema: warehouse
-        +materialized: table
+      sales: {}
 
-      marketing:
-        +schema: warehouse
-        +materialized: table
+      marketing: {}
 
 snapshots:
   enterprise_dwh:
     +target_schema: warehouse
-    +strategy: timestamp
-    +updated_at: 'updated_at'

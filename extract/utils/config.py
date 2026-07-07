@@ -31,8 +31,6 @@ def _get_env(name: str, default=None, required: bool = False):
 PG_CONFIG = {
     "host": _get_env("PG_HOST"),
     "port": _get_env("PG_PORT"),
-    "host": _get_env("PG_HOST"),
-    "port": _get_env("PG_PORT"),
     "dbname": _get_env("PG_DATABASE", required=True),
     "user": _get_env("PG_USER", required=True),
     "password": _get_env("PG_PASSWORD", required=True),
@@ -67,8 +65,6 @@ S3_REGION = _get_env("AWS_DEFAULT_REGION")
 AWS_ACCESS_KEY_ID = _get_env("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = _get_env("AWS_SECRET_ACCESS_KEY")
 
-SOURCE_SCHEMA = _get_env("PG_SOURCE_SCHEMA")
-TIMESTAMP_COLUMN = _get_env("PG_TIMESTAMP_COLUMN")
 SOURCE_SCHEMA = _get_env("PG_SOURCE_SCHEMA")
 TIMESTAMP_COLUMN = _get_env("PG_TIMESTAMP_COLUMN")
 TABLE_CONFIG = tuple(

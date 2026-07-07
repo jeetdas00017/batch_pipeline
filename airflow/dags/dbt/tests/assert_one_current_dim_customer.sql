@@ -8,9 +8,9 @@
 -- ---------------------------------------------------------------------
 
 select
-    customer_id,
+    customer_sk,
     count(*) as current_record_count
 from {{ ref('dim_customers') }}
 where is_current = true
-group by customer_id
+group by customer_sk
 having count(*) > 1

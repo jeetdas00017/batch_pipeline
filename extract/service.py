@@ -27,7 +27,6 @@ def _read_table(table_name: str, latest_timestamp: str) -> pd.DataFrame:
     parsed_timestamp = datetime.fromisoformat(latest_timestamp.replace("Z", "+00:00")) if latest_timestamp else None
     with get_pg_connection() as pg_conn:
         df = pd.read_sql(query, pg_conn, params=(parsed_timestamp,))
-        df = pd.read_sql(query, pg_conn, params=(parsed_timestamp,))
     return df
 
 
@@ -48,33 +47,33 @@ def wait_for_row_count_sync(**context):
     sleep_seconds = 60
 
     for attempt in range(1, max_attempts + 1):
-        pg_counts = {}
-        sf_counts = {}
+        pg_max_timestamp = {}
+        sf_max_timestamp = {}
 
         with get_pg_connection() as pg_conn:
             with pg_conn.cursor() as pg_cursor:
                 for table_name in tables:
-                    pg_cursor.execute(f"SELECT COUNT(*) FROM {SOURCE_SCHEMA}.{table_name}")
-                    pg_counts[table_name] = pg_cursor.fetchone()[0]
+                    pg_cursor.execute(f"SELECT max(updated_at) FROM {SOURCE_SCHEMA}.{table_name}")
+                    pg_max_timestamp[table_name] = pg_cursor.fetchone()[0]
 
         with get_sf_connection(schema=RAW_SCHEMA) as sf_conn:
             with sf_conn.cursor() as sf_cursor:
                 for table_name in tables:
-                    sf_cursor.execute(f"SELECT COUNT(*) FROM {snowflake_schema}.{table_name.upper()}")
-                    sf_counts[table_name] = sf_cursor.fetchone()[0]
+                    sf_cursor.execute(f"SELECT max(updated_at) FROM {snowflake_schema}.{table_name.upper()}")
+                    sf_max_timestamp[table_name] = sf_cursor.fetchone()[0]
 
-        logger.info("Row count check attempt %s: postgres=%s, snowflake=%s", attempt, pg_counts, sf_counts)
+        logger.info("Max timestamp check attempt %s: postgres=%s, snowflake=%s", attempt, pg_max_timestamp, sf_max_timestamp)
 
-        if pg_counts == sf_counts:
-            logger.info("Row counts are synchronized for all configured tables.")
+        if pg_max_timestamp == sf_max_timestamp:
+            logger.info("Max timestamps are synchronized for all configured tables.")
             return True
 
         if attempt < max_attempts:
-            logger.info("Row counts are not yet aligned. Waiting %s seconds before retrying.", sleep_seconds)
+            logger.info("Max timestamps are not yet aligned. Waiting %s seconds before retrying.", sleep_seconds)
             time.sleep(sleep_seconds)
 
     raise AirflowException(
-        f"Timed out waiting for row counts to match for tables: {', '.join(tables)}"
+        f"Timed out waiting for max timestamps to match for tables: {', '.join(tables)}"
     )
 
 def extract_table(table_name: str, execution_date: str, run_ts: str, run_id: str | None = None) -> dict:
@@ -119,28 +118,14 @@ def extract_table(table_name: str, execution_date: str, run_ts: str, run_id: str
     except Exception as exc:
         logger.exception("Extraction failed for table=%s", table_name)
         update_audit_entry(run_id, table_name, "failed", rows_processed=0, new_rows=0, existing_rows_updated=0, notes=str(exc))
-        raise
-        update_audit_entry(
-            run_id,
-            table_name,
-            "success",
-            rows_processed=len(df),
-            new_rows=len(df),
-            existing_rows_updated=0,
-            notes="Extraction completed",
-        )
-        return result
-    except Exception as exc:
-        logger.exception("Extraction failed for table=%s", table_name)
-        update_audit_entry(run_id, table_name, "failed", rows_processed=0, new_rows=0, existing_rows_updated=0, notes=str(exc))
-        raise
+        
+        
 
 
 def extract_all(execution_date: str, run_ts: str) -> list[dict]:
     results = []
     for table_name in TABLE_CONFIG:
         logger.info("Starting extraction for table=%s", table_name)
-        results.append(extract_table(table_name, execution_date, run_ts, run_id=f"{execution_date}_{run_ts}"))
         results.append(extract_table(table_name, execution_date, run_ts, run_id=f"{execution_date}_{run_ts}"))
     logger.info("Completed extraction for %s tables", len(results))
     return results

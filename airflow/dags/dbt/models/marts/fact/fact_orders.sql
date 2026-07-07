@@ -15,24 +15,17 @@
 
 with orders as (
 
-    select * from {{ ref('stg_orders') }}
+    select *
+    from {{ ref('stg_orders') }}
 
     {% if is_incremental() %}
-    where updated_at > (select coalesce(max(updated_at), '1900-01-01') from {{ this }})
+    where updated_at >
+    (
+        select coalesce(max(updated_at), cast('1900-01-01' as timestamp))
+        from {{ this }}
+    )
     {% endif %}
 
-),
-
-dim_cust as (
-    select customer_id, customer_sk
-    from {{ ref('dim_customers') }}
-    where is_current = true
-),
-
-dim_prod as (
-    select product_id, product_sk
-    from {{ ref('dim_products') }}
-    where is_current = true
 )
 
 select
@@ -50,6 +43,15 @@ select
     o.payment_method,
     o.created_at,
     o.updated_at
+
 from orders o
-left join dim_cust dc on o.customer_id = dc.customer_id
-left join dim_prod dp on o.product_id = dp.product_id
+
+left join {{ ref('dim_customers') }} dc
+    on o.customer_id = dc.customer_id
+   and o.order_date >= dc.effective_from
+   and o.order_date < dc.effective_to
+
+left join {{ ref('dim_products') }} dp
+    on o.product_id = dp.product_id
+   and o.order_date >= dp.effective_from
+   and o.order_date < dp.effective_to
