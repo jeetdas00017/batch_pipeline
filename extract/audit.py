@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from extract.utils.config import CONTROL_SCHEMA, CONTROL_TABLE
 from extract.utils.db_utils import get_sf_connection
@@ -36,7 +37,7 @@ def insert_audit_entry(run_id: str, table_name: str, status: str, rows_processed
     conn = get_sf_connection(schema=CONTROL_SCHEMA)
     try:
         cur = conn.cursor()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(ZoneInfo("Asia/Kolkata"))
         cur.execute(
             f"""
             INSERT INTO {CONTROL_SCHEMA}.{CONTROL_TABLE} (
@@ -69,7 +70,7 @@ def update_audit_entry(run_id: str, table_name: str, status: str, rows_processed
     try:
         cur = conn.cursor()
         set_parts = ["status = %s", "updated_at = %s"]
-        values: list[object] = [status, datetime.now(timezone.utc)]
+        values: list[object] = [status, datetime.now(ZoneInfo("Asia/Kolkata"))]
 
         if rows_processed is not None:
             set_parts.append("rows_processed = %s")

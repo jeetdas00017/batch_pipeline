@@ -25,13 +25,17 @@ def model(dbt, session):
         )
     )
 
+    current_timestamp_ist = F.sql_expr(
+        "CONVERT_TIMEZONE('UTC', 'Asia/Kolkata', CURRENT_TIMESTAMP())"
+    )
+
     scored = (
         customer_orders.select(
             F.col("customer_sk"),
             F.col("last_order_date"),
             F.col("frequency"),
             F.col("monetary"),
-            F.datediff("day", F.col("last_order_date"), F.current_timestamp()).alias(
+            F.datediff("day", F.col("last_order_date"), current_timestamp_ist).alias(
                 "recency_days"
             ),
         )

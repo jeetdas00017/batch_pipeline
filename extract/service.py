@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import time
 
 import pandas as pd
@@ -11,6 +11,34 @@ from extract.repository import get_latest_timestamp, update_latest_timestamp
 from extract.utils.s3_utils import upload_file_to_s3
 from extract.utils.logging_config import logger
 from extract.audit import insert_audit_entry, update_audit_entry
+
+IST_TIMEZONE = timezone(timedelta(hours=5, minutes=30))
+UTC_TIMEZONE = timezone.utc
+
+
+def _normalize_timestamp(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+
+    if getattr(value, "tzinfo", None) is None:
+        value = value.replace(tzinfo=UTC_TIMEZONE)
+
+    return value.astimezone(IST_TIMEZONE)
+
+
+def _format_timestamp_for_log(value: datetime | None) -> str | None:
+    normalized = _normalize_timestamp(value)
+    if normalized is None:
+        return None
+
+    return normalized.isoformat()
+
+
+def _format_timestamp_map_for_log(values: dict) -> dict:
+    return {
+        table_name: _format_timestamp_for_log(value)
+        for table_name, value in values.items()
+    }
 
 
 def _build_extract_query(table_name: str) -> str:
@@ -24,7 +52,9 @@ def _build_extract_query(table_name: str) -> str:
 def _read_table(table_name: str, latest_timestamp: str) -> pd.DataFrame:
     query = _build_extract_query(table_name)
     logger.info("Reading table %s with latest_timestamp=%s", table_name, latest_timestamp)
-    parsed_timestamp = datetime.fromisoformat(latest_timestamp.replace("Z", "+00:00")) if latest_timestamp else None
+    parsed_timestamp = _normalize_timestamp(
+        datetime.fromisoformat(latest_timestamp.replace("Z", "+00:00"))
+    ) if latest_timestamp else None
     with get_pg_connection() as pg_conn:
         df = pd.read_sql(query, pg_conn, params=(parsed_timestamp,))
     return df
@@ -62,7 +92,12 @@ def wait_for_max_time_sync(**context):
                     sf_cursor.execute(f"SELECT max(updated_at) FROM {snowflake_schema}.{table_name.upper()}")
                     sf_max_timestamp[table_name] = sf_cursor.fetchone()[0]
 
-        logger.info("Max timestamp check attempt %s: postgres=%s, snowflake=%s", attempt, pg_max_timestamp, sf_max_timestamp)
+        logger.info(
+            "Max timestamp check attempt %s: postgres=%s, snowflake=%s",
+            attempt,
+            _format_timestamp_map_for_log(pg_max_timestamp),
+            _format_timestamp_map_for_log(sf_max_timestamp),
+        )
 
         if pg_max_timestamp == sf_max_timestamp:
             logger.info("Max timestamps are synchronized for all configured tables.")

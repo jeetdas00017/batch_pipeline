@@ -1,6 +1,4 @@
-import os
 import sys
-import time
 from datetime import datetime, timedelta
 
 from airflow import DAG
@@ -8,6 +6,7 @@ from airflow.exceptions import AirflowException
 from airflow.operators.bash import BashOperator
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
+import random
 
 
 sys.path.append("/opt/airflow")
@@ -52,9 +51,9 @@ with DAG(
         task_id="generate_fake_data",
         python_callable=generate_fake_data,
         op_kwargs={
-            "customer_count": 10,
-            "product_count": 5,
-            "order_count": 20,
+            "customer_count": random.randint(5, 15),
+            "product_count": random.randint(3, 7),
+            "order_count": random.randint(10, 50),
         },
     )
 

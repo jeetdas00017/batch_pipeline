@@ -25,10 +25,3 @@ CREATE TABLE IF NOT EXISTS etl_control.extract_audit_log (
     PRIMARY KEY (table_name, run_id)
 );
 
--- Seed placeholder rows so the first run starts from the configured fallback date.
-INSERT INTO etl_control.extract_audit_log (table_name, last_extracted_at, updated_at, status)
-SELECT t.table_name, '1900-01-01 00:00:00'::timestamp, CURRENT_TIMESTAMP(), 'success'
-FROM (VALUES ('customers'), ('products'), ('orders')) AS t(table_name)
-WHERE NOT EXISTS (
-    SELECT 1 FROM etl_control.extract_audit_log a WHERE a.table_name = t.table_name
-);
