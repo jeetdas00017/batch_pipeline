@@ -39,8 +39,8 @@ def _write_extract_output(table_name: str, df: pd.DataFrame, execution_date: str
     os.remove(local_path)
     return {"table": table_name, "rows": len(df), "s3_key": s3_key}
 
-def wait_for_row_count_sync(**context):
-    """Wait until PostgreSQL and Snowflake raw tables have matching row counts."""
+def wait_for_max_time_sync(**context):
+    """Wait until PostgreSQL and Snowflake raw tables have matching max timestamps."""
     tables = [table_name.lower() for table_name in TABLE_CONFIG]
     snowflake_schema = RAW_SCHEMA
     max_attempts = 10

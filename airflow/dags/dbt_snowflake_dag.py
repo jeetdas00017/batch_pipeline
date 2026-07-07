@@ -12,7 +12,7 @@ from airflow.operators.python import PythonOperator
 
 sys.path.append("/opt/airflow")
 
-from extract.service import extract_all, wait_for_row_count_sync
+from extract.service import extract_all, wait_for_max_time_sync
 from extract.utils.logging_config import configure_logging
 from extract.insert.insert_to_postgres import generate_fake_data
 
@@ -63,9 +63,9 @@ with DAG(
         python_callable=extract_postgres_to_s3_task,
     )
 
-    wait_for_row_count = PythonOperator(
-        task_id="wait_for_row_count_sync",
-        python_callable=wait_for_row_count_sync,
+    max_time_sync_task = PythonOperator(
+        task_id="wait_for_max_time_sync",
+        python_callable=wait_for_max_time_sync,
     )
 
     check_dbt = BashOperator(
@@ -155,4 +155,4 @@ with DAG(
         """,
     )
 
-    generate_fake_data_task >> extract_postgres_to_s3 >> wait_for_row_count >> check_dbt >> dbt_packages >> run_staging >> run_snapshot >> run_dimensions >> run_facts >> run_marketing >> run_sales >> dbt_test
+    generate_fake_data_task >> extract_postgres_to_s3 >> max_time_sync_task >> check_dbt >> dbt_packages >> run_staging >> run_snapshot >> run_dimensions >> run_facts >> run_marketing >> run_sales >> dbt_test

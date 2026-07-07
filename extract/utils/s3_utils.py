@@ -24,7 +24,7 @@ def get_s3_client():
     return boto3.client("s3", **params)
 
 
-def upload_file_to_s3(local_path: str, bucket: str, s3_key: str) -> None:
+def upload_file_to_s3(local_path: str, bucket, s3_key: str) -> None:
     logger.info("Uploading local file %s to s3://%s/%s", local_path, bucket, s3_key)
     s3_client = get_s3_client()
     s3_client.upload_file(local_path, bucket, s3_key)
