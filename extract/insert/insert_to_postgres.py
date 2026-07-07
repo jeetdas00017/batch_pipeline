@@ -1,5 +1,6 @@
 import random
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from faker import Faker
 from psycopg2.extras import execute_values
@@ -61,8 +62,8 @@ def generate_customers(cursor, count=10):
             fake.msisdn()[:10],
             fake.city(),
             "India",
-            datetime.now(),
-            datetime.now()
+            datetime.now(ZoneInfo("Asia/Kolkata")),
+            datetime.now(ZoneInfo("Asia/Kolkata"))
         ))
 
     execute_values(
@@ -139,8 +140,8 @@ def generate_products(cursor, count=10):
             brand,
             price,
             cost,
-            datetime.now(),
-            datetime.now()
+            datetime.now(ZoneInfo("Asia/Kolkata")),
+            datetime.now(ZoneInfo("Asia/Kolkata"))
         ))
 
     execute_values(
@@ -216,15 +217,15 @@ def generate_orders(cursor, count=20):
             start_id + i,
             customer,
             product_id,
-            datetime.now(),
+            datetime.now(ZoneInfo("Asia/Kolkata")),
             quantity,
             price,
             discount,
             total,
             random.choice(statuses),
             random.choice(payment_methods),
-            datetime.now(),
-            datetime.now()
+            datetime.now(ZoneInfo("Asia/Kolkata")),
+            datetime.now(ZoneInfo("Asia/Kolkata"))
         ))
 
     execute_values(

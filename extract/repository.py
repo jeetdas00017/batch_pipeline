@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from extract.utils.config import (
     CONTROL_SCHEMA,
@@ -37,7 +38,7 @@ def update_latest_timestamp(table_name: str, latest_timestamp_value: str, run_id
 
     try:
         cur = conn.cursor()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(ZoneInfo("Asia/Kolkata"))
 
         if run_id is not None:
             cur.execute(

@@ -5,7 +5,7 @@
 -- ---------------------------------------------------------------------
 {{ config(
     materialized='incremental',
-    unique_key='customer_sk',
+    unique_key='customer_id',
     incremental_strategy='merge'
 ) }}
 
